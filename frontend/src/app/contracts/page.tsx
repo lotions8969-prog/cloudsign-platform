@@ -7,6 +7,7 @@ import { doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { auth, db } from "../../lib/firebase";
 import { searchEnvelopes, getStatusLabel, getStatusColor, formatTimestamp } from "../../lib/firestore";
+import { getDemoSession, DEMO_ENVELOPES, isDemoConfigured } from "../../lib/demoAuth";
 import type { Envelope, EnvelopeStatus } from "../../types/schemas";
 
 export default function ContractsPage() {
@@ -14,12 +15,22 @@ export default function ContractsPage() {
   const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
   const [orgId, setOrgId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
   const [filterStatus, setFilterStatus] = useState<EnvelopeStatus | "">("");
   const [searchCounterparty, setSearchCounterparty] = useState("");
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
 
   useEffect(() => {
+    const demoSession = getDemoSession();
+    if (demoSession) {
+      setIsDemo(true);
+      setEnvelopes(DEMO_ENVELOPES as unknown as Envelope[]);
+      setLoading(false);
+      return;
+    }
+    if (isDemoConfigured()) { router.replace("/login"); return; }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.replace("/login"); return; }
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -31,13 +42,7 @@ export default function ContractsPage() {
     return unsubscribe;
   }, [router]);
 
-  const loadEnvelopes = async (
-    oid: string,
-    status: string,
-    counterparty: string,
-    dateFrom: string,
-    dateTo: string
-  ) => {
+  const loadEnvelopes = async (oid: string, status: string, counterparty: string, dateFrom: string, dateTo: string) => {
     const result = await searchEnvelopes({
       organizationId: oid,
       status: status as EnvelopeStatus || undefined,
@@ -50,6 +55,14 @@ export default function ContractsPage() {
   };
 
   const handleSearch = () => {
+    if (isDemo) {
+      // デモ: クライアント側フィルター
+      let filtered = DEMO_ENVELOPES as unknown as Envelope[];
+      if (filterStatus) filtered = filtered.filter((e) => e.status === filterStatus);
+      if (searchCounterparty) filtered = filtered.filter((e) => e.ebookkeepingIndex?.counterpartyName?.includes(searchCounterparty));
+      setEnvelopes(filtered);
+      return;
+    }
     if (!orgId) return;
     loadEnvelopes(orgId, filterStatus, searchCounterparty, searchDateFrom, searchDateTo);
   };
@@ -71,7 +84,7 @@ export default function ContractsPage() {
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
               </svg>
-              CloudSign
+              ALL Contract
             </Link>
             <span className="text-gray-700 font-medium">書類管理</span>
           </div>

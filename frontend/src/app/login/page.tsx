@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
+import { isDemoConfigured, signInDemo } from "../../lib/demoAuth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,40 +22,63 @@ export default function LoginPage() {
   const [orgName, setOrgName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [redirectLoading, setRedirectLoading] = useState(true);
+  const [redirectChecking, setRedirectChecking] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
 
-  // Googleリダイレクト後の結果を処理
   useEffect(() => {
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result?.user) {
-          const user = result.user;
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (!userDoc.exists()) {
-            await setupNewUser(
-              user.uid,
-              user.email ?? "",
-              user.displayName ?? "",
-              user.displayName ? `${user.displayName}の組織` : "マイ組織"
-            );
+    setIsDemo(isDemoConfigured());
+
+    // Firebase設定済みの場合のみリダイレクト結果チェック
+    if (!isDemoConfigured()) {
+      getRedirectResult(auth)
+        .then(async (result) => {
+          if (result?.user) {
+            const user = result.user;
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (!userDoc.exists()) {
+              await setupNewUser(
+                user.uid,
+                user.email ?? "",
+                user.displayName ?? "",
+                user.displayName ? `${user.displayName}の組織` : "マイ組織"
+              );
+            }
+            router.replace("/dashboard");
           }
-          router.replace("/dashboard");
-        }
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : "";
-        if (msg) setError(getJaErrorMessage(msg));
-      })
-      .finally(() => {
-        setRedirectLoading(false);
-      });
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : "";
+          if (msg) setError(getJaErrorMessage(msg));
+        })
+        .finally(() => setRedirectChecking(false));
+    } else {
+      setRedirectChecking(false);
+    }
   }, [router]);
+
+  const handleDemoLogin = () => {
+    signInDemo();
+    router.replace("/dashboard");
+  };
+
+  const handleGoogleAuth = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithRedirect(auth, provider);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "エラーが発生しました";
+      setError(getJaErrorMessage(msg));
+      setLoading(false);
+    }
+  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
       if (mode === "login") {
         await signInWithEmailAndPassword(auth, email, password);
@@ -71,29 +95,10 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleAuth = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: "select_account" });
-      // signInWithRedirect はポップアップブロックを回避し、モバイル・デプロイ環境で確実に動作
-      await signInWithRedirect(auth, provider);
-      // リダイレクト後は useEffect の getRedirectResult で処理される
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "エラーが発生しました";
-      setError(getJaErrorMessage(msg));
-      setLoading(false);
-    }
-  };
-
-  if (redirectLoading) {
+  if (redirectChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">読み込み中...</p>
-        </div>
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -113,7 +118,26 @@ export default function LoginPage() {
         </div>
 
         <div className="card p-8">
-          {/* タブ切り替え */}
+          {/* デモモードバナー */}
+          {isDemo && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p className="text-sm font-semibold text-amber-800 mb-1">デモモード</p>
+              <p className="text-xs text-amber-700 mb-3">
+                Firebase未設定のため、サンプルデータでアプリを体験できます。
+              </p>
+              <button
+                onClick={handleDemoLogin}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                デモとして体験する（ログイン不要）
+              </button>
+            </div>
+          )}
+
+          {/* タブ */}
           <div className="flex mb-6 border-b border-gray-200">
             <button
               onClick={() => setMode("login")}
@@ -140,8 +164,9 @@ export default function LoginPage() {
           {/* Googleログイン */}
           <button
             onClick={handleGoogleAuth}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg px-4 py-2.5 text-gray-700 font-medium hover:bg-gray-50 active:bg-gray-100 transition-colors mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={loading || isDemo}
+            title={isDemo ? "Firebaseを設定するとGoogleログインが使えます" : ""}
+            className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg px-4 py-2.5 text-gray-700 font-medium hover:bg-gray-50 transition-colors mb-4 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -156,7 +181,7 @@ export default function LoginPage() {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                Googleで続ける
+                Googleで続ける{isDemo && "（要Firebase設定）"}
               </>
             )}
           </button>
@@ -176,50 +201,21 @@ export default function LoginPage() {
               <>
                 <div>
                   <label className="label">お名前</label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="input"
-                    placeholder="山田 太郎"
-                    required
-                  />
+                  <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="input" placeholder="山田 太郎" required />
                 </div>
                 <div>
                   <label className="label">組織名</label>
-                  <input
-                    type="text"
-                    value={orgName}
-                    onChange={(e) => setOrgName(e.target.value)}
-                    className="input"
-                    placeholder="株式会社サンプル"
-                    required
-                  />
+                  <input type="text" value={orgName} onChange={(e) => setOrgName(e.target.value)} className="input" placeholder="株式会社サンプル" required />
                 </div>
               </>
             )}
             <div>
               <label className="label">メールアドレス</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-                placeholder="email@example.com"
-                required
-              />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="email@example.com" required />
             </div>
             <div>
               <label className="label">パスワード</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder="8文字以上"
-                minLength={8}
-                required
-              />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="8文字以上" minLength={8} required />
             </div>
 
             {error && (
@@ -228,7 +224,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full">
+            <button type="submit" disabled={loading || isDemo} className="btn-primary w-full disabled:opacity-40">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -236,6 +232,12 @@ export default function LoginPage() {
                 </span>
               ) : mode === "login" ? "ログイン" : "アカウント作成"}
             </button>
+
+            {isDemo && (
+              <p className="text-xs text-center text-gray-400">
+                メール/Googleログインは Firebase 設定後に利用できます
+              </p>
+            )}
           </form>
         </div>
       </div>
@@ -243,41 +245,19 @@ export default function LoginPage() {
   );
 }
 
-async function setupNewUser(
-  uid: string,
-  email: string,
-  displayName: string,
-  orgName: string
-): Promise<void> {
+async function setupNewUser(uid: string, email: string, displayName: string, orgName: string) {
   const orgId = `org_${uid}`;
-
   await setDoc(doc(db, "organizations", orgId), {
-    id: orgId,
-    name: orgName,
-    displayName: orgName,
-    email,
-    plan: "free",
-    monthlyEnvelopeCount: 0,
-    totalEnvelopeCount: 0,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    id: orgId, name: orgName, displayName: orgName, email,
+    plan: "free", monthlyEnvelopeCount: 0, totalEnvelopeCount: 0,
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   });
-
   await setDoc(doc(db, "organizations", orgId, "members", uid), {
-    uid,
-    email,
-    displayName,
-    role: "admin",
-    joinedAt: serverTimestamp(),
+    uid, email, displayName, role: "admin", joinedAt: serverTimestamp(),
   });
-
   await setDoc(doc(db, "users", uid), {
-    uid,
-    email,
-    displayName: displayName || email.split("@")[0],
-    organizationId: orgId,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    uid, email, displayName: displayName || email.split("@")[0],
+    organizationId: orgId, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   });
 }
 
@@ -288,9 +268,8 @@ function getJaErrorMessage(msg: string): string {
   if (msg.includes("weak-password")) return "パスワードは8文字以上で設定してください";
   if (msg.includes("invalid-email")) return "有効なメールアドレスを入力してください";
   if (msg.includes("popup-closed") || msg.includes("cancelled-popup-request")) return "ログインがキャンセルされました";
-  if (msg.includes("popup-blocked")) return "ポップアップがブロックされました。ブラウザの設定を確認してください";
-  if (msg.includes("unauthorized-domain")) return "このドメインはFirebaseで認証されていません。Firebase ConsoleでVercelのドメインを承認してください";
-  if (msg.includes("invalid-api-key")) return "Firebase APIキーが設定されていません。環境変数を確認してください";
-  if (msg.includes("network-request-failed")) return "ネットワークエラーが発生しました。接続を確認してください";
+  if (msg.includes("unauthorized-domain")) return "このドメインはFirebase Consoleで承認が必要です";
+  if (msg.includes("api-key-not-valid") || msg.includes("invalid-api-key")) return "Firebase APIキーが未設定です（デモモードをお試しください）";
+  if (msg.includes("network-request-failed")) return "ネットワークエラーが発生しました";
   return msg;
 }
