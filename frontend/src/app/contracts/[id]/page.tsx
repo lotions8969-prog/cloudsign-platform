@@ -267,7 +267,13 @@ export default function ContractDetailPage() {
               <div className="p-8 text-center text-gray-400">受信者がいません</div>
             ) : recipients.map((recipient, index) => {
               const signUrl = typeof window !== "undefined"
-                ? `${window.location.origin}/contracts/${envelopeId}/sign?token=demo`
+                ? `${window.location.origin}/contracts/${envelopeId}/sign?${new URLSearchParams({
+                    token: "demo",
+                    title: envelope.title,
+                    recipient: recipient.name,
+                    sender: (envelope as any).ebookkeepingIndex?.counterpartyName ?? "送信者",
+                    desc: (envelope as any).description ?? "",
+                  }).toString()}`
                 : "";
               return (
                 <div key={recipient.id} className="p-4 space-y-3">

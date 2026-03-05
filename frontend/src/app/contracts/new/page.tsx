@@ -70,19 +70,30 @@ export default function NewContractPage() {
     );
   };
 
-  const sendEmails = async (envelopeId: string, senderEmail: string): Promise<EmailResult[]> => {
+  const buildSignUrl = (envelopeId: string, recipientName: string, senderEmail: string): string => {
     const origin = window.location.origin;
+    const params = new URLSearchParams({
+      token: "demo",
+      title: title,
+      recipient: recipientName,
+      sender: senderEmail,
+      desc: description || "",
+    });
+    return `${origin}/contracts/${envelopeId}/sign?${params.toString()}`;
+  };
+
+  const sendEmails = async (envelopeId: string, senderEmail: string): Promise<EmailResult[]> => {
     const results: EmailResult[] = recipients.map((r) => ({
       name: r.name,
       email: r.email,
       status: "sending" as const,
-      signUrl: `${origin}/contracts/${envelopeId}/sign?token=demo`,
+      signUrl: buildSignUrl(envelopeId, r.name, senderEmail),
     }));
     setEmailResults([...results]);
 
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
-      const signUrl = `${origin}/contracts/${envelopeId}/sign?token=demo`;
+      const signUrl = buildSignUrl(envelopeId, recipient.name, senderEmail);
       try {
         const res = await fetch("/api/send-email", {
           method: "POST",
@@ -99,8 +110,6 @@ export default function NewContractPage() {
         if (res.ok) {
           results[i] = { ...results[i], status: "sent", signUrl };
         } else {
-          const data = await res.json().catch(() => ({}));
-          // APIキー未設定の場合
           results[i] = {
             ...results[i],
             status: res.status === 503 ? "unconfigured" : "failed",

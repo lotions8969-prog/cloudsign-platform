@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
-// SignatureCanvas は CSR のみ（react-signature-canvas はSSR非対応）
 const SignatureCanvas = dynamic(() => import("../../../../components/SignatureCanvas"), {
   ssr: false,
   loading: () => <div className="w-full h-48 bg-gray-100 rounded-lg animate-pulse" />,
@@ -33,15 +32,33 @@ export default function SignPage() {
   const [agreed, setAgreed] = useState(false);
   const [signing, setSigning] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const isDemo = token === "demo";
 
   useEffect(() => {
     loadEnvelopeInfo();
   }, [envelopeId, token]);
 
   const loadEnvelopeInfo = async () => {
+    // デモモード: URLパラメータからデータを取得（APIを呼ばない）
+    if (isDemo) {
+      const title = searchParams.get("title") ?? "電子署名書類";
+      const recipientName = searchParams.get("recipient") ?? "受信者";
+      const senderName = searchParams.get("sender") ?? "送信者";
+      const description = searchParams.get("desc") ?? "";
+      setEnvelopeInfo({
+        id: envelopeId,
+        title: decodeURIComponent(title),
+        description: decodeURIComponent(description),
+        senderName: decodeURIComponent(senderName),
+        recipientName: decodeURIComponent(recipientName),
+        pdfUrl: "",
+      });
+      setStep("signing");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/sign?envelopeId=${envelopeId}&token=${token}`);
-
       if (res.status === 401) {
         setStep("error");
         setErrorMessage("このリンクは無効または期限切れです");
@@ -54,15 +71,9 @@ export default function SignPage() {
       if (!res.ok) {
         throw new Error("書類情報の取得に失敗しました");
       }
-
       const data = await res.json();
       setEnvelopeInfo(data);
-
-      if (data.status === "expired") {
-        setStep("expired");
-      } else {
-        setStep("preview");
-      }
+      setStep(data.status === "expired" ? "expired" : "preview");
     } catch (err) {
       setStep("error");
       setErrorMessage(err instanceof Error ? err.message : "エラーが発生しました");
@@ -72,6 +83,14 @@ export default function SignPage() {
   const handleSign = async () => {
     if (!signatureDataUrl || !agreed) return;
     setSigning(true);
+
+    // デモモード: APIを呼ばず署名完了画面へ
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 800));
+      setSigning(false);
+      setStep("complete");
+      return;
+    }
 
     try {
       const res = await fetch("/api/sign", {
@@ -83,12 +102,10 @@ export default function SignPage() {
           signatureImageBase64: signatureDataUrl,
         }),
       });
-
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error ?? "署名処理に失敗しました");
       }
-
       setStep("complete");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "署名エラー");
@@ -185,9 +202,14 @@ export default function SignPage() {
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
             </svg>
-            CloudSign
+            ALL Contract
           </div>
-          <span className="text-sm text-gray-500">電子署名</span>
+          <div className="flex items-center gap-2">
+            {isDemo && (
+              <span className="bg-amber-100 text-amber-700 text-xs font-medium px-2 py-0.5 rounded-full">デモ</span>
+            )}
+            <span className="text-sm text-gray-500">電子署名</span>
+          </div>
         </div>
       </div>
 
@@ -258,6 +280,11 @@ export default function SignPage() {
         {step === "signing" && (
           <div className="card p-6 space-y-6">
             <h2 className="text-lg font-semibold">電子署名の実行</h2>
+            {isDemo && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                デモモードです。実際には署名データは保存されません。
+              </div>
+            )}
 
             <SignatureCanvas
               onConfirm={(dataUrl) => setSignatureDataUrl(dataUrl)}
