@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudsign-local
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudsign-frontend
+  namespace: cloudsign-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudsign-frontend
+  template:
+    metadata:
+      labels:
+        app: cloudsign-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: cloudsign-frontend
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: development
+            - name: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloudsign-secrets
+                  key: firebase-project-id
+                  optional: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudsign-frontend
+  namespace: cloudsign-local
+spec:
+  selector:
+    app: cloudsign-frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: LoadBalancer

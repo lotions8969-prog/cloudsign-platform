@@ -1,0 +1,48 @@
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: cloudsign-platform
+
+build:
+  tagPolicy:
+    gitCommit: {}
+
+profiles:
+  # ローカル開発環境
+  - name: local
+    build:
+      local:
+        push: false
+      artifacts:
+        - image: cloudsign-frontend
+          context: frontend
+          docker:
+            dockerfile: Dockerfile
+          sync:
+            manual:
+              - src: "src/**/*.ts"
+                dest: /app/src
+              - src: "src/**/*.tsx"
+                dest: /app/src
+    deploy:
+      kubectl:
+        manifests:
+          - k8s/local/*.yaml
+
+  # Cloud Run 本番デプロイ
+  - name: production
+    build:
+      googleCloudBuild:
+        projectId: "{{.PROJECT_ID}}"
+        region: asia-northeast1
+        diskSizeGb: 100
+        machineType: "E2_HIGHCPU_8"
+      artifacts:
+        - image: asia-northeast1-docker.pkg.dev/{{.PROJECT_ID}}/cloudsign/frontend
+          context: frontend
+          docker:
+            dockerfile: Dockerfile
+    deploy:
+      cloudrun:
+        projectid: "{{.PROJECT_ID}}"
+        region: asia-northeast1

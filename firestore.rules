@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ヘルパー関数
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserOrg() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId;
+    }
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() && getUserOrg() == orgId;
+    }
+
+    function isAdmin(orgId) {
+      return isOrgMember(orgId) &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isEnvelopeCompleted(envelopeData) {
+      return envelopeData.status == 'completed';
+    }
+
+    function isEnvelopeVoided(envelopeData) {
+      return envelopeData.status == 'voided';
+    }
+
+    // =========================================
+    // Organizations コレクション
+    // =========================================
+    match /organizations/{orgId} {
+      allow read: if isOrgMember(orgId);
+      allow create: if isAuthenticated();
+      // 組織情報の更新は管理者のみ
+      allow update: if isAdmin(orgId);
+      // 削除は禁止（電子帳簿保存法対応）
+      allow delete: if false;
+
+      // 組織メンバー管理
+      match /members/{userId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isAdmin(orgId);
+        allow delete: if false;
+      }
+    }
+
+    // =========================================
+    // Users コレクション
+    // =========================================
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // =========================================
+    // Envelopes コレクション（契約書封筒）
+    // =========================================
+    match /envelopes/{envelopeId} {
+      // 読み取り: 組織メンバーまたは受信者本人
+      allow read: if isAuthenticated() && (
+        isOrgMember(resource.data.organizationId) ||
+        request.auth.email in resource.data.recipientEmails
+      );
+
+      // 作成: 組織メンバーのみ
+      allow create: if isAuthenticated() && isOrgMember(request.resource.data.organizationId);
+
+      // 更新: 厳格なルール
+      allow update: if isAuthenticated() && (
+        // 未締結の場合のみ更新可能（組織メンバーまたは受信者）
+        !isEnvelopeCompleted(resource.data) &&
+        !isEnvelopeVoided(resource.data) && (
+          isOrgMember(resource.data.organizationId) ||
+          request.auth.email in resource.data.recipientEmails
+        ) &&
+        // statusフィールドの不正変更防止
+        !(resource.data.status != 'completed' &&
+          request.resource.data.status == 'completed' &&
+          !isOrgMember(resource.data.organizationId))
+      );
+
+      // 削除: 電子帳簿保存法により絶対禁止
+      allow delete: if false;
+
+      // Recipients サブコレクション
+      match /recipients/{recipientId} {
+        allow read: if isAuthenticated() && (
+          isOrgMember(get(/databases/$(database)/documents/envelopes/$(envelopeId)).data.organizationId) ||
+          resource.data.email == request.auth.email
+        );
+        allow create: if isAuthenticated() &&
+          isOrgMember(get(/databases/$(database)/documents/envelopes/$(envelopeId)).data.organizationId);
+        allow update: if isAuthenticated() && (
+          resource.data.email == request.auth.email ||
+          isOrgMember(get(/databases/$(database)/documents/envelopes/$(envelopeId)).data.organizationId)
+        );
+        allow delete: if false;
+      }
+    }
+
+    // =========================================
+    // AuditLogs コレクション（監査ログ - 完全不変）
+    // =========================================
+    match /auditLogs/{logId} {
+      // 読み取り: 組織管理者のみ
+      allow read: if isAuthenticated() &&
+        isAdmin(resource.data.organizationId);
+
+      // 作成のみ許可（Cloud Functions経由）
+      allow create: if false; // Cloud Functionsのサービスアカウントのみ作成
+
+      // 更新・削除: 絶対禁止（電子帳簿保存法 真実性の確保）
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // =========================================
+    // SignatureTokens コレクション（署名用ワンタイムトークン）
+    // =========================================
+    match /signatureTokens/{tokenId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      // 使用済みマーク更新のみ
+      allow update: if isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedAt', 'status']);
+      allow delete: if false;
+    }
+  }
+}
