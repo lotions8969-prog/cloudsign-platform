@@ -265,27 +265,52 @@ export default function ContractDetailPage() {
           <div className="card divide-y divide-gray-100">
             {recipients.length === 0 ? (
               <div className="p-8 text-center text-gray-400">受信者がいません</div>
-            ) : recipients.map((recipient, index) => (
-              <div key={recipient.id} className="flex items-center gap-4 p-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  recipient.status === "signed" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-                }`}>
-                  {recipient.status === "signed" ? "✓" : index + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{recipient.name}</p>
-                  <p className="text-sm text-gray-500">{recipient.email}</p>
-                </div>
-                <div className="text-right">
-                  <span className={`badge ${getStatusColor(recipient.status)}`}>
-                    {getStatusLabel(recipient.status)}
-                  </span>
-                  {recipient.signedAt && (
-                    <p className="text-xs text-gray-400 mt-1">{formatTimestamp(recipient.signedAt)}</p>
+            ) : recipients.map((recipient, index) => {
+              const signUrl = typeof window !== "undefined"
+                ? `${window.location.origin}/contracts/${envelopeId}/sign?token=demo`
+                : "";
+              return (
+                <div key={recipient.id} className="p-4 space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      recipient.status === "signed" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                    }`}>
+                      {recipient.status === "signed" ? "✓" : index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{recipient.name}</p>
+                      <p className="text-sm text-gray-500">{recipient.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`badge ${getStatusColor(recipient.status)}`}>
+                        {getStatusLabel(recipient.status)}
+                      </span>
+                      {recipient.signedAt && (
+                        <p className="text-xs text-gray-400 mt-1">{formatTimestamp(recipient.signedAt)}</p>
+                      )}
+                    </div>
+                  </div>
+                  {recipient.status === "pending" && signUrl && (
+                    <div className="ml-12 bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 mb-1.5">署名URL（受信者に共有）</p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          readOnly
+                          value={signUrl}
+                          className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-700 font-mono"
+                        />
+                        <button
+                          onClick={() => navigator.clipboard.writeText(signUrl).catch(() => {})}
+                          className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
+                        >
+                          コピー
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
