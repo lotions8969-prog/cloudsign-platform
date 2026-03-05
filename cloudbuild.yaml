@@ -40,9 +40,9 @@ steps:
     args:
       - "build"
       - "-t"
-      - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloudsign/frontend:$COMMIT_SHA"
+      - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/all-contract/frontend:$COMMIT_SHA"
       - "-t"
-      - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloudsign/frontend:latest"
+      - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/all-contract/frontend:latest"
       - "frontend"
     waitFor: ["frontend-lint", "frontend-typecheck"]
 
@@ -51,7 +51,7 @@ steps:
     args:
       - "push"
       - "--all-tags"
-      - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloudsign/frontend"
+      - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/all-contract/frontend"
     waitFor: ["docker-build"]
 
   # --- Step 4: Cloud Run デプロイ ---
@@ -61,8 +61,8 @@ steps:
     args:
       - "run"
       - "deploy"
-      - "cloudsign-frontend"
-      - "--image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloudsign/frontend:$COMMIT_SHA"
+      - "all-contract-frontend"
+      - "--image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/all-contract/frontend:$COMMIT_SHA"
       - "--region=asia-northeast1"
       - "--platform=managed"
       - "--allow-unauthenticated"
@@ -70,7 +70,7 @@ steps:
       - "--cpu=1"
       - "--max-instances=10"
       - "--set-env-vars=NODE_ENV=production"
-      - "--service-account=cloudsign-frontend@$PROJECT_ID.iam.gserviceaccount.com"
+      - "--service-account=all-contract-frontend@$PROJECT_ID.iam.gserviceaccount.com"
     waitFor: ["docker-push"]
 
   # --- Step 5: Cloud Functions デプロイ ---
@@ -89,7 +89,7 @@ steps:
       - "--trigger-event-filters=type=google.cloud.firestore.document.v1.created"
       - "--trigger-event-filters=database=(default)"
       - "--trigger-event-filters-path-pattern=document=envelopes/{envelopeId}"
-      - "--service-account=cloudsign-functions@$PROJECT_ID.iam.gserviceaccount.com"
+      - "--service-account=all-contract-functions@$PROJECT_ID.iam.gserviceaccount.com"
       - "--memory=256Mi"
     waitFor: ["functions-build"]
 
@@ -108,7 +108,7 @@ steps:
       - "--trigger-event-filters=type=google.cloud.firestore.document.v1.updated"
       - "--trigger-event-filters=database=(default)"
       - "--trigger-event-filters-path-pattern=document=envelopes/{envelopeId}"
-      - "--service-account=cloudsign-functions@$PROJECT_ID.iam.gserviceaccount.com"
+      - "--service-account=all-contract-functions@$PROJECT_ID.iam.gserviceaccount.com"
       - "--memory=512Mi"
     waitFor: ["functions-build"]
 
@@ -123,5 +123,5 @@ options:
 timeout: "1800s"
 
 images:
-  - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloudsign/frontend:$COMMIT_SHA"
-  - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloudsign/frontend:latest"
+  - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/all-contract/frontend:$COMMIT_SHA"
+  - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/all-contract/frontend:latest"

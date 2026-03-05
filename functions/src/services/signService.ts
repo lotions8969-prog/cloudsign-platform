@@ -273,8 +273,8 @@ function embedSignatureMetadata(
   }
 ): void {
   // PDF Info辞書にカスタムプロパティを設定
-  pdfDoc.setCreator("CloudSign Platform");
-  pdfDoc.setProducer("CloudSign Platform v1.0 / Cloud KMS");
+  pdfDoc.setCreator("ALL Contract Platform");
+  pdfDoc.setProducer("ALL Contract Platform v1.0 / Cloud KMS");
   pdfDoc.setModificationDate(new Date());
   pdfDoc.setKeywords([
     `KMS_SIGNED`,
@@ -289,13 +289,13 @@ function embedSignatureMetadata(
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
     <rdf:Description rdf:about=""
-      xmlns:cloudsign="https://cloudsign.example.com/schema/1.0/">
-      <cloudsign:SigningTime>${metadata.signingTime}</cloudsign:SigningTime>
-      <cloudsign:KmsKeyVersion>${metadata.kmsKeyVersion}</cloudsign:KmsKeyVersion>
-      <cloudsign:PdfSha256Hash>${metadata.pdfSha256Hex}</cloudsign:PdfSha256Hash>
-      <cloudsign:SignerName>${metadata.recipientName}</cloudsign:SignerName>
-      <cloudsign:SignatureAlgorithm>RSA-PSS-SHA256</cloudsign:SignatureAlgorithm>
-      <cloudsign:SignatureValue>${metadata.signatureBase64.substring(0, 64)}...</cloudsign:SignatureValue>
+      xmlns:allcontract="https://all-contract.example.com/schema/1.0/">
+      <allcontract:SigningTime>${metadata.signingTime}</allcontract:SigningTime>
+      <allcontract:KmsKeyVersion>${metadata.kmsKeyVersion}</allcontract:KmsKeyVersion>
+      <allcontract:PdfSha256Hash>${metadata.pdfSha256Hex}</allcontract:PdfSha256Hash>
+      <allcontract:SignerName>${metadata.recipientName}</allcontract:SignerName>
+      <allcontract:SignatureAlgorithm>RSA-PSS-SHA256</allcontract:SignatureAlgorithm>
+      <allcontract:SignatureValue>${metadata.signatureBase64.substring(0, 64)}...</allcontract:SignatureValue>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>

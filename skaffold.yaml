@@ -1,7 +1,7 @@
 apiVersion: skaffold/v4beta6
 kind: Config
 metadata:
-  name: cloudsign-platform
+  name: all-contract-platform
 
 build:
   tagPolicy:
@@ -14,7 +14,7 @@ profiles:
       local:
         push: false
       artifacts:
-        - image: cloudsign-frontend
+        - image: all-contract-frontend
           context: frontend
           docker:
             dockerfile: Dockerfile
@@ -38,7 +38,7 @@ profiles:
         diskSizeGb: 100
         machineType: "E2_HIGHCPU_8"
       artifacts:
-        - image: asia-northeast1-docker.pkg.dev/{{.PROJECT_ID}}/cloudsign/frontend
+        - image: asia-northeast1-docker.pkg.dev/{{.PROJECT_ID}}/all-contract/frontend
           context: frontend
           docker:
             dockerfile: Dockerfile

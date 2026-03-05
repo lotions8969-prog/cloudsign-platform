@@ -129,7 +129,7 @@ async function finalizeSignedDocument(
     const kmsConfig = {
       projectId: process.env.GCP_PROJECT_ID ?? "",
       locationId: process.env.KMS_LOCATION ?? "asia-northeast1",
-      keyRingId: process.env.KMS_KEY_RING ?? "cloudsign-keyring",
+      keyRingId: process.env.KMS_KEY_RING ?? "all-contract-keyring",
       keyId: (orgData.kmsKeyId as string) ?? process.env.KMS_KEY_ID ?? "document-signing-key",
       storageBucket: process.env.STORAGE_BUCKET ?? "",
       tsaUrl: process.env.TSA_URL, // オプション

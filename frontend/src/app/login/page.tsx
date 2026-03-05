@@ -77,7 +77,7 @@ export default function LoginPage() {
             <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-4 9v-2h6v2H9zm0-4v-2h8v2H9zm0-4V8h3v2H9z"/>
             </svg>
-            <span className="text-3xl font-bold">CloudSign</span>
+            <span className="text-3xl font-bold">ALL Contract</span>
           </div>
           <p className="text-gray-600 text-sm">電子署名法・電子帳簿保存法準拠の電子契約プラットフォーム</p>
         </div>

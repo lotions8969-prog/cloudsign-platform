@@ -9,11 +9,11 @@ PROJECT_ID=your-project-id
 REGION=asia-northeast1
 
 # サービスアカウント作成
-gcloud iam service-accounts create cloudsign-frontend \
-  --display-name="CloudSign Frontend" \
+gcloud iam service-accounts create all-contract-frontend \
+  --display-name="ALL Contract Frontend" \
   --project=$PROJECT_ID
 
-SA_FRONTEND=cloudsign-frontend@$PROJECT_ID.iam.gserviceaccount.com
+SA_FRONTEND=all-contract-frontend@$PROJECT_ID.iam.gserviceaccount.com
 ```
 
 #### 付与する権限
@@ -42,11 +42,11 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 ### 2. Cloud Functions 用 SA
 
 ```bash
-gcloud iam service-accounts create cloudsign-functions \
-  --display-name="CloudSign Functions" \
+gcloud iam service-accounts create all-contract-functions \
+  --display-name="ALL Contract Functions" \
   --project=$PROJECT_ID
 
-SA_FUNCTIONS=cloudsign-functions@$PROJECT_ID.iam.gserviceaccount.com
+SA_FUNCTIONS=all-contract-functions@$PROJECT_ID.iam.gserviceaccount.com
 ```
 
 #### 付与する権限（最小権限原則）
@@ -93,14 +93,14 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 ```bash
 # キーリング作成
-gcloud kms keyrings create cloudsign-keyring \
+gcloud kms keyrings create all-contract-keyring \
   --location=$REGION \
   --project=$PROJECT_ID
 
 # 非対称署名キー作成（RSA-PSS 4096bit SHA-256）
 # ※ HSM 保護: FIPS 140-2 Level 3 準拠
 gcloud kms keys create document-signing-key \
-  --keyring=cloudsign-keyring \
+  --keyring=all-contract-keyring \
   --location=$REGION \
   --purpose=asymmetric-signing \
   --default-algorithm=rsa-sign-pss-4096-sha256 \
@@ -110,7 +110,7 @@ gcloud kms keys create document-signing-key \
 # キーバージョン名の確認
 gcloud kms keys versions list \
   --key=document-signing-key \
-  --keyring=cloudsign-keyring \
+  --keyring=all-contract-keyring \
   --location=$REGION \
   --project=$PROJECT_ID
 ```
@@ -119,8 +119,8 @@ gcloud kms keys versions list \
 
 | 権限 | SA | 説明 |
 |------|-----|------|
-| `roles/cloudkms.cryptoKeyVersions.useToSign` | cloudsign-functions | 署名のみ（秘密鍵エクスポート不可） |
-| `roles/cloudkms.publicKeyViewer` | cloudsign-functions | 公開鍵取得（検証用） |
+| `roles/cloudkms.cryptoKeyVersions.useToSign` | all-contract-functions | 署名のみ（秘密鍵エクスポート不可） |
+| `roles/cloudkms.publicKeyViewer` | all-contract-functions | 公開鍵取得（検証用） |
 | ❌ `roles/cloudkms.admin` | なし | 管理権限は付与しない |
 | ❌ `roles/cloudkms.cryptoOperator` | なし | 不要な権限は付与しない |
 
@@ -131,11 +131,11 @@ gcloud kms keys versions list \
 ```bash
 # 原本PDF バケット（組織別アクセス制御）
 gsutil mb -p $PROJECT_ID -c STANDARD -l $REGION \
-  gs://$PROJECT_ID-cloudsign-originals
+  gs://$PROJECT_ID-all-contract-originals
 
 # 署名済みPDF バケット
 gsutil mb -p $PROJECT_ID -c STANDARD -l $REGION \
-  gs://$PROJECT_ID-cloudsign-signed
+  gs://$PROJECT_ID-all-contract-signed
 
 # CORS設定（フロントエンドからのアップロード用）
 cat > /tmp/cors.json << 'EOF'
@@ -146,13 +146,13 @@ cat > /tmp/cors.json << 'EOF'
   "maxAgeSeconds": 3600
 }]
 EOF
-gsutil cors set /tmp/cors.json gs://$PROJECT_ID-cloudsign-originals
+gsutil cors set /tmp/cors.json gs://$PROJECT_ID-all-contract-originals
 
 # 原本PDFの公開アクセス禁止（IAMのみ）
-gsutil iam ch -d allUsers:objectViewer gs://$PROJECT_ID-cloudsign-originals
+gsutil iam ch -d allUsers:objectViewer gs://$PROJECT_ID-all-contract-originals
 
 # 署名済みPDFも同様
-gsutil iam ch -d allUsers:objectViewer gs://$PROJECT_ID-cloudsign-signed
+gsutil iam ch -d allUsers:objectViewer gs://$PROJECT_ID-all-contract-signed
 ```
 
 ---
@@ -189,8 +189,8 @@ firebase deploy --only firestore:indexes --project=$PROJECT_ID
 ```bash
 # GitHub リポジトリと連携
 gcloud builds triggers create github \
-  --name=cloudsign-deploy \
-  --repo-name=cloudsign-platform \
+  --name=all-contract-deploy \
+  --repo-name=all-contract-platform \
   --repo-owner=your-github-org \
   --branch-pattern="^main$" \
   --build-config=cloudbuild.yaml \

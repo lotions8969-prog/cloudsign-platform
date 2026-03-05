@@ -9,8 +9,8 @@ import * as crypto from "crypto";
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY ?? "");
 
-const FROM_EMAIL = process.env.FROM_EMAIL ?? "noreply@cloudsign.example.com";
-const APP_URL = process.env.APP_URL ?? "https://cloudsign.example.com";
+const FROM_EMAIL = process.env.FROM_EMAIL ?? "noreply@all-contract.example.com";
+const APP_URL = process.env.APP_URL ?? "https://all-contract.example.com";
 
 export interface NotificationData {
   envelopeId: string;
@@ -88,7 +88,7 @@ export async function sendSignatureRequest(data: NotificationData): Promise<void
 <body>
   <div class="container">
     <div class="header">
-      <h1>CloudSign - 電子署名依頼</h1>
+      <h1>ALL Contract - 電子署名依頼</h1>
     </div>
     <div class="body">
       <p>${data.recipientName} 様</p>
@@ -114,8 +114,8 @@ export async function sendSignatureRequest(data: NotificationData): Promise<void
       </div>
     </div>
     <div class="footer">
-      このメールは CloudSign プラットフォームから自動送信されています。<br>
-      © ${new Date().getFullYear()} CloudSign. All rights reserved.
+      このメールは ALL Contract プラットフォームから自動送信されています。<br>
+      © ${new Date().getFullYear()} ALL Contract. All rights reserved.
     </div>
   </div>
 </body>
@@ -123,7 +123,7 @@ export async function sendSignatureRequest(data: NotificationData): Promise<void
 
   await sgMail.send({
     to: { name: data.recipientName, email: data.recipientEmail },
-    from: { name: "CloudSign", email: FROM_EMAIL },
+    from: { name: "ALL Contract", email: FROM_EMAIL },
     subject: `【署名依頼】${data.envelopeTitle}`,
     html: htmlContent,
     text: `${data.recipientName} 様\n\n${data.senderName}様より署名依頼が届きました。\n\n書類名: ${data.envelopeTitle}\n\n以下のURLから署名してください:\n${signUrl}\n\n${expiresText}`,
@@ -181,8 +181,8 @@ export async function sendSignatureCompletedNotification(
       </center>
     </div>
     <div class="footer">
-      このメールは CloudSign プラットフォームから自動送信されています。<br>
-      © ${new Date().getFullYear()} CloudSign. All rights reserved.
+      このメールは ALL Contract プラットフォームから自動送信されています。<br>
+      © ${new Date().getFullYear()} ALL Contract. All rights reserved.
     </div>
   </div>
 </body>
@@ -190,7 +190,7 @@ export async function sendSignatureCompletedNotification(
 
   await sgMail.send({
     to: { name: senderName, email: senderEmail },
-    from: { name: "CloudSign", email: FROM_EMAIL },
+    from: { name: "ALL Contract", email: FROM_EMAIL },
     subject: `【署名完了】${envelopeTitle}`,
     html: htmlContent,
   });
