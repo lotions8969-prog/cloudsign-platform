@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDropzone } from "react-dropzone";
+import { getDemoSession, isDemoConfigured } from "../../../lib/demoAuth";
 
 interface RecipientInput {
   name: string;
@@ -70,12 +71,48 @@ export default function NewContractPage() {
     setError("");
 
     try {
+      // デモモード: Cloud Storage/Firebaseを使わずローカルで処理
+      if (isDemoConfigured() || getDemoSession()) {
+        await new Promise((r) => setTimeout(r, 800)); // 処理感を演出
+        const demoId = `env_demo_${Date.now()}`;
+
+        // デモ用に localStorage に追加保存
+        const existing = JSON.parse(localStorage.getItem("demo_contracts") || "[]");
+        existing.unshift({
+          id: demoId,
+          title,
+          description,
+          status: "sent",
+          recipientEmails: recipients.map((r) => r.email),
+          ebookkeepingIndex: {
+            transactionDate: transactionDate || null,
+            amount: amount ? Number(amount) : null,
+            counterpartyName: counterpartyName || null,
+            contractType: contractType || null,
+            currency: "JPY",
+          },
+          recipients,
+          pdfFileName: pdfFile.name,
+          createdAt: new Date().toISOString(),
+        });
+        localStorage.setItem("demo_contracts", JSON.stringify(existing));
+        router.push(`/contracts/${demoId}`);
+        return;
+      }
+
+      // 本番モード: Firebase Auth トークンを取得
+      const { getAuth } = await import("firebase/auth");
+      const currentUser = getAuth().currentUser;
+      if (!currentUser) throw new Error("ログインが必要です");
+      const idToken = await currentUser.getIdToken();
+
       // Step 1: PDFをアップロード
       const formData = new FormData();
       formData.append("pdf", pdfFile);
 
       const uploadRes = await fetch("/api/upload", {
         method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
         body: formData,
       });
 
@@ -88,7 +125,10 @@ export default function NewContractPage() {
       // Step 2: エンベロープを作成
       const createRes = await fetch("/api/contracts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           title,
           description,
@@ -128,7 +168,7 @@ export default function NewContractPage() {
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
               </svg>
-              CloudSign
+              ALL Contract
             </Link>
             <span className="text-gray-400">/</span>
             <span className="text-gray-700">新しい書類を作成</span>
