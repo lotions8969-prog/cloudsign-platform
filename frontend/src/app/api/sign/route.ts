@@ -3,7 +3,7 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import * as crypto from "crypto";
 import { initAdminApp } from "../../../lib/firebaseAdmin";
-import { validateAccessToken } from "../../../../../../functions/src/services/notificationService";
+import { validateAccessToken } from "../../../lib/signatureToken";
 
 initAdminApp();
 
