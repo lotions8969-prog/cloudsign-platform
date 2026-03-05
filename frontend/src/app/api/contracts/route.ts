@@ -3,6 +3,8 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { initAdminApp } from "../../../lib/firebaseAdmin";
 
+export const dynamic = "force-dynamic";
+
 initAdminApp();
 
 export async function POST(req: NextRequest) {

@@ -9,10 +9,19 @@ export function initAdminApp(): App {
     return adminApp;
   }
 
-  // Cloud Run / Cloud Functions では Application Default Credentials が自動使用される
-  // ローカル開発時は GOOGLE_APPLICATION_CREDENTIALS 環境変数を設定
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+  if (!projectId || !clientEmail || !privateKey) {
+    // ビルド時など認証情報未設定の場合は projectId のみで初期化
+    adminApp = initializeApp({ projectId: projectId ?? "placeholder" });
+    return adminApp;
+  }
+
   adminApp = initializeApp({
-    projectId: process.env.GCP_PROJECT_ID,
+    credential: cert({ projectId, clientEmail, privateKey }),
+    projectId,
     storageBucket: process.env.STORAGE_BUCKET,
   });
 

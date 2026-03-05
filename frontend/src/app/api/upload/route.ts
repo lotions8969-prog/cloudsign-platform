@@ -3,9 +3,17 @@ import { Storage } from "@google-cloud/storage";
 import * as crypto from "crypto";
 import { getAdminAuth } from "../../../lib/firebaseAdmin";
 
-const storage = new Storage({
-  projectId: process.env.GCP_PROJECT_ID,
-});
+export const dynamic = "force-dynamic";
+
+function getStorage() {
+  return new Storage({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    credentials: {
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    },
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     // Cloud Storage にアップロード
     const bucketName = process.env.STORAGE_BUCKET ?? "";
-    const bucket = storage.bucket(bucketName);
+    const bucket = getStorage().bucket(bucketName);
     const fileName = `original-pdfs/${Date.now()}_${sha256.substring(0, 8)}.pdf`;
     const file = bucket.file(fileName);
 
