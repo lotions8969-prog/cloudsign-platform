@@ -13,7 +13,7 @@ import {
   getStatusColor,
   formatTimestamp,
 } from "../../../lib/firestore";
-import { getDemoSession, getAllDemoEnvelopes, isDemoConfigured } from "../../../lib/demoAuth";
+import { getDemoSession, getAllDemoEnvelopes, isDemoConfigured, deleteDemoEnvelope } from "../../../lib/demoAuth";
 import type { Envelope, Recipient, AuditLog } from "../../../types/schemas";
 
 export default function ContractDetailPage() {
@@ -24,6 +24,7 @@ export default function ContractDetailPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "recipients" | "audit">("overview");
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const demoSession = getDemoSession();
@@ -87,6 +88,37 @@ export default function ContractDetailPage() {
     return () => { unsubscribe(); unsubEnvelope(); };
   }, [envelopeId, router]);
 
+  const handleDelete = async () => {
+    if (!confirm("この書類を削除しますか？この操作は取り消せません。")) return;
+    setDeleting(true);
+    try {
+      const demoSession = getDemoSession();
+      if (demoSession || isDemoConfigured()) {
+        deleteDemoEnvelope(envelopeId);
+        router.replace("/contracts");
+        return;
+      }
+      const { getAuth } = await import("firebase/auth");
+      const currentUser = getAuth().currentUser;
+      if (!currentUser) throw new Error("ログインが必要です");
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch(`/api/contracts/${envelopeId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error ?? "削除に失敗しました");
+        return;
+      }
+      router.replace("/contracts");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "削除に失敗しました");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading || !envelope) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -133,6 +165,18 @@ export default function ContractDetailPage() {
                 <a href={envelope.signedPdfUrl} target="_blank" rel="noopener noreferrer" className="btn-primary flex items-center gap-2 text-sm">
                   署名済みPDFをダウンロード
                 </a>
+              )}
+              {envelope.status !== "completed" && (
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  {deleting ? "削除中..." : "削除"}
+                </button>
               )}
             </div>
           </div>

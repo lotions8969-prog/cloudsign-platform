@@ -158,3 +158,15 @@ export function signOutDemo(): void {
     localStorage.removeItem(STORAGE_KEY);
   }
 }
+
+/** デモ: localStorage から書類を削除する */
+export function deleteDemoEnvelope(id: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const stored: any[] = JSON.parse(localStorage.getItem(CONTRACTS_KEY) || "[]");
+    const filtered = stored.filter((e) => e.id !== id);
+    localStorage.setItem(CONTRACTS_KEY, JSON.stringify(filtered));
+  } catch {
+    // ignore
+  }
+}

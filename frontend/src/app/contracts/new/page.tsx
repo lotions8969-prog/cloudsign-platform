@@ -73,7 +73,7 @@ export default function NewContractPage() {
     try {
       // デモモード: Cloud Storage/Firebaseを使わずローカルで処理
       if (isDemoConfigured() || getDemoSession()) {
-        await new Promise((r) => setTimeout(r, 800)); // 処理感を演出
+        await new Promise((r) => setTimeout(r, 500));
         const demoId = `env_demo_${Date.now()}`;
 
         // デモ用に localStorage に追加保存
@@ -96,6 +96,28 @@ export default function NewContractPage() {
           createdAt: new Date().toISOString(),
         });
         localStorage.setItem("demo_contracts", JSON.stringify(existing));
+
+        // 受信者にメールを送信（Resend API 経由）
+        const origin = window.location.origin;
+        for (const recipient of recipients) {
+          try {
+            await fetch("/api/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: recipient.email,
+                recipientName: recipient.name,
+                contractTitle: title,
+                senderEmail: "demo@allcontract.com",
+                description,
+                signUrl: `${origin}/contracts/${demoId}/sign?token=demo`,
+              }),
+            });
+          } catch {
+            // メール送信失敗は無視して続行
+          }
+        }
+
         router.push(`/contracts/${demoId}`);
         return;
       }
@@ -150,6 +172,28 @@ export default function NewContractPage() {
       }
 
       const { envelopeId } = await createRes.json();
+
+      // 受信者にメールを送信
+      const origin = window.location.origin;
+      for (const recipient of recipients) {
+        try {
+          await fetch("/api/send-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: recipient.email,
+              recipientName: recipient.name,
+              contractTitle: title,
+              senderEmail: currentUser.email ?? "送信者",
+              description,
+              signUrl: `${origin}/contracts/${envelopeId}/sign?token=pending`,
+            }),
+          });
+        } catch {
+          // メール送信失敗は無視して続行
+        }
+      }
+
       router.push(`/contracts/${envelopeId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");

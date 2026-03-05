@@ -7,7 +7,7 @@ import { doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { auth, db } from "../../lib/firebase";
 import { searchEnvelopes, getStatusLabel, getStatusColor, formatTimestamp } from "../../lib/firestore";
-import { getDemoSession, getAllDemoEnvelopes, isDemoConfigured } from "../../lib/demoAuth";
+import { getDemoSession, getAllDemoEnvelopes, isDemoConfigured, deleteDemoEnvelope } from "../../lib/demoAuth";
 import type { Envelope, EnvelopeStatus } from "../../types/schemas";
 
 export default function ContractsPage() {
@@ -52,6 +52,34 @@ export default function ContractsPage() {
       limit: 50,
     });
     setEnvelopes(result.envelopes);
+  };
+
+  const handleDelete = async (e: React.MouseEvent, envelopeId: string, status: string) => {
+    e.preventDefault();
+    if (!confirm("この書類を削除しますか？")) return;
+    if (isDemo || isDemoConfigured()) {
+      deleteDemoEnvelope(envelopeId);
+      setEnvelopes((prev) => prev.filter((env) => env.id !== envelopeId));
+      return;
+    }
+    try {
+      const { getAuth } = await import("firebase/auth");
+      const currentUser = getAuth().currentUser;
+      if (!currentUser) return;
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch(`/api/contracts/${envelopeId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (res.ok) {
+        setEnvelopes((prev) => prev.filter((env) => env.id !== envelopeId));
+      } else {
+        const err = await res.json();
+        alert(err.error ?? "削除に失敗しました");
+      }
+    } catch {
+      alert("削除に失敗しました");
+    }
   };
 
   const handleSearch = () => {
@@ -172,45 +200,57 @@ export default function ContractsPage() {
           ) : (
             <div className="divide-y divide-gray-100">
               {envelopes.map((envelope) => (
-                <Link
-                  key={envelope.id}
-                  href={`/contracts/${envelope.id}`}
-                  className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{envelope.title}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      {envelope.ebookkeepingIndex?.counterpartyName && (
-                        <span className="text-xs text-gray-500">
-                          {envelope.ebookkeepingIndex.counterpartyName}
-                        </span>
-                      )}
-                      {envelope.ebookkeepingIndex?.transactionDate && (
-                        <span className="text-xs text-gray-400">
-                          {envelope.ebookkeepingIndex.transactionDate}
-                        </span>
-                      )}
-                      {envelope.ebookkeepingIndex?.amount && (
-                        <span className="text-xs text-gray-400">
-                          ¥{envelope.ebookkeepingIndex.amount.toLocaleString()}
-                        </span>
-                      )}
+                <div key={envelope.id} className="flex items-center gap-2 hover:bg-gray-50 transition-colors">
+                  <Link
+                    href={`/contracts/${envelope.id}`}
+                    className="flex items-center gap-4 p-4 flex-1 min-w-0"
+                  >
+                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
+                      </svg>
                     </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <span className={`badge ${getStatusColor(envelope.status)}`}>
-                      {getStatusLabel(envelope.status)}
-                    </span>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {formatTimestamp(envelope.createdAt)}
-                    </p>
-                  </div>
-                </Link>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{envelope.title}</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        {envelope.ebookkeepingIndex?.counterpartyName && (
+                          <span className="text-xs text-gray-500">
+                            {envelope.ebookkeepingIndex.counterpartyName}
+                          </span>
+                        )}
+                        {envelope.ebookkeepingIndex?.transactionDate && (
+                          <span className="text-xs text-gray-400">
+                            {envelope.ebookkeepingIndex.transactionDate}
+                          </span>
+                        )}
+                        {envelope.ebookkeepingIndex?.amount && (
+                          <span className="text-xs text-gray-400">
+                            ¥{envelope.ebookkeepingIndex.amount.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className={`badge ${getStatusColor(envelope.status)}`}>
+                        {getStatusLabel(envelope.status)}
+                      </span>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {formatTimestamp(envelope.createdAt)}
+                      </p>
+                    </div>
+                  </Link>
+                  {envelope.status !== "completed" && (
+                    <button
+                      onClick={(e) => handleDelete(e, envelope.id, envelope.status)}
+                      className="mr-3 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                      title="削除"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}
