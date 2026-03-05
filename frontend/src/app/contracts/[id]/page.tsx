@@ -13,7 +13,7 @@ import {
   getStatusColor,
   formatTimestamp,
 } from "../../../lib/firestore";
-import { getDemoSession, DEMO_ENVELOPES, isDemoConfigured } from "../../../lib/demoAuth";
+import { getDemoSession, getAllDemoEnvelopes, isDemoConfigured } from "../../../lib/demoAuth";
 import type { Envelope, Recipient, AuditLog } from "../../../types/schemas";
 
 export default function ContractDetailPage() {
@@ -29,49 +29,23 @@ export default function ContractDetailPage() {
     const demoSession = getDemoSession();
 
     if (demoSession) {
-      // デモ既存データから検索
-      const found = DEMO_ENVELOPES.find((e) => e.id === envelopeId) as unknown as Envelope | undefined;
+      // 全デモデータ（固定＋localStorageの新規作成分）から検索
+      const allEnvelopes = getAllDemoEnvelopes();
+      const found = allEnvelopes.find((e) => e.id === envelopeId) as unknown as Envelope | undefined;
 
       if (found) {
         setEnvelope(found);
-        // デモ用の受信者データを生成
-        const demoRecipients = (found as any).recipients?.map((r: any, i: number) => ({
+        const demoRecipients = ((found as any).recipients || []).map((r: any, i: number) => ({
           id: `rec_${i}`,
           envelopeId,
           name: r.name ?? `受信者${i + 1}`,
           email: r.email ?? `recipient${i}@example.com`,
           order: r.order ?? i + 1,
-          status: found.status === "completed" ? "signed" : "pending",
+          status: (found.status === "completed" ? "signed" : "pending") as "signed" | "pending",
           createdAt: found.createdAt,
           updatedAt: found.updatedAt,
-        })) ?? [];
+        }));
         setRecipients(demoRecipients);
-      } else {
-        // localStorageに保存された新規作成分を検索
-        const stored = JSON.parse(localStorage.getItem("demo_contracts") || "[]");
-        const storedFound = stored.find((e: any) => e.id === envelopeId);
-        if (storedFound) {
-          setEnvelope({
-            ...storedFound,
-            organizationId: "org_demo",
-            createdBy: "demo-user-001",
-            originalPdfUrl: "#",
-            originalPdfSha256: "demo-hash-" + storedFound.id,
-            createdAt: { toDate: () => new Date(storedFound.createdAt), toMillis: () => new Date(storedFound.createdAt).getTime() } as any,
-            updatedAt: { toDate: () => new Date(storedFound.createdAt), toMillis: () => new Date(storedFound.createdAt).getTime() } as any,
-          } as Envelope);
-          const recs = (storedFound.recipients || []).map((r: any, i: number) => ({
-            id: `rec_${i}`,
-            envelopeId,
-            name: r.name,
-            email: r.email,
-            order: r.order ?? i + 1,
-            status: "pending" as const,
-            createdAt: { toDate: () => new Date(storedFound.createdAt) } as any,
-            updatedAt: { toDate: () => new Date(storedFound.createdAt) } as any,
-          }));
-          setRecipients(recs);
-        }
       }
 
       // デモ用監査ログ

@@ -6,7 +6,7 @@ import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { getStatusLabel, getStatusColor, formatTimestamp } from "../../lib/firestore";
-import { getDemoSession, signOutDemo, DEMO_ORG, DEMO_ENVELOPES, isDemoConfigured } from "../../lib/demoAuth";
+import { getDemoSession, signOutDemo, DEMO_ORG, getAllDemoEnvelopes, isDemoConfigured } from "../../lib/demoAuth";
 import type { Envelope } from "../../types/schemas";
 import Link from "next/link";
 
@@ -30,7 +30,7 @@ export default function DashboardPage() {
       setIsDemo(true);
       setUserEmail(demoSession.email);
       setOrgName(DEMO_ORG.displayName);
-      const envs = DEMO_ENVELOPES as unknown as Envelope[];
+      const envs = getAllDemoEnvelopes() as unknown as Envelope[];
       setRecentEnvelopes(envs);
       const s = { total: envs.length, draft: 0, inProgress: 0, completed: 0 };
       envs.forEach((e) => {

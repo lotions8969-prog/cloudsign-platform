@@ -106,6 +106,29 @@ export const DEMO_ENVELOPES = [
 ];
 
 const STORAGE_KEY = "allcontract_demo_session";
+const CONTRACTS_KEY = "demo_contracts";
+
+/** localStorageに保存された新規書類 + 固定デモデータを統合して返す */
+export function getAllDemoEnvelopes(): typeof DEMO_ENVELOPES {
+  if (typeof window === "undefined") return DEMO_ENVELOPES;
+  try {
+    const stored: any[] = JSON.parse(localStorage.getItem(CONTRACTS_KEY) || "[]");
+    // localStorageの書類をFirestoreライクな形式に変換
+    const converted = stored.map((e) => ({
+      ...e,
+      organizationId: "org_demo",
+      createdBy: "demo-user-001",
+      originalPdfUrl: "#",
+      originalPdfSha256: "demo-" + e.id,
+      createdAt: { toDate: () => new Date(e.createdAt), toMillis: () => new Date(e.createdAt).getTime() },
+      updatedAt: { toDate: () => new Date(e.createdAt), toMillis: () => new Date(e.createdAt).getTime() },
+    }));
+    // 新規作成分を先頭、固定デモデータを後ろに結合
+    return [...converted, ...DEMO_ENVELOPES] as typeof DEMO_ENVELOPES;
+  } catch {
+    return DEMO_ENVELOPES;
+  }
+}
 
 export function isDemoConfigured(): boolean {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;

@@ -7,7 +7,7 @@ import { doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { auth, db } from "../../lib/firebase";
 import { searchEnvelopes, getStatusLabel, getStatusColor, formatTimestamp } from "../../lib/firestore";
-import { getDemoSession, DEMO_ENVELOPES, isDemoConfigured } from "../../lib/demoAuth";
+import { getDemoSession, getAllDemoEnvelopes, isDemoConfigured } from "../../lib/demoAuth";
 import type { Envelope, EnvelopeStatus } from "../../types/schemas";
 
 export default function ContractsPage() {
@@ -25,7 +25,7 @@ export default function ContractsPage() {
     const demoSession = getDemoSession();
     if (demoSession) {
       setIsDemo(true);
-      setEnvelopes(DEMO_ENVELOPES as unknown as Envelope[]);
+      setEnvelopes(getAllDemoEnvelopes() as unknown as Envelope[]);
       setLoading(false);
       return;
     }
@@ -57,7 +57,7 @@ export default function ContractsPage() {
   const handleSearch = () => {
     if (isDemo) {
       // デモ: クライアント側フィルター
-      let filtered = DEMO_ENVELOPES as unknown as Envelope[];
+      let filtered = getAllDemoEnvelopes() as unknown as Envelope[];
       if (filterStatus) filtered = filtered.filter((e) => e.status === filterStatus);
       if (searchCounterparty) filtered = filtered.filter((e) => e.ebookkeepingIndex?.counterpartyName?.includes(searchCounterparty));
       setEnvelopes(filtered);
